@@ -1,11 +1,10 @@
 # egui playground
 
-A Rust-playground-style site for egui. Code editor on the left, the running egui program on the
-right, compiled in the browser.
+A playground for egui!
 
-The whole page is one eframe app. The user's program is a separate `wasm32-wasip1` module that
-never touches a canvas: it produces meshes and texture uploads, the host renders them into an
-offscreen texture and shows it as an image.
+The page is one host egui app, that has an editor and draws meshes from a guest egui app from a separete wasm blob.
+
+That wasm blob is compiled by rustc & cranelift in the browser.
 
 ## Crates
 
@@ -38,50 +37,15 @@ cd crates/host && trunk serve              # the playground itself
 ## Verification
 
 ```sh
-cargo test                                                      # bridge round trips, 60 frames natively
+cargo test
 node scripts/drive-guest.mjs target/wasm32-wasip1/release/hello.wasm
 ```
 
 `scripts/drive-guest.mjs` makes the same calls the browser runtime worker makes, so it catches
 bridge breakage without a browser.
 
-## Numbers
+## Attribution
 
-Measured on an M-series mac, egui 0.36.
+Browser compilation was more or less copied from [weblings](https://github.com/AngelOnFira/weblings)
 
-What a first visit downloads. GitHub Pages gzips both `application/octet-stream` and
-`application/wasm`, so the gzip column is what crosses the wire.
-
-| artifact | raw | gzip |
-| --- | --- | --- |
-| `rustc.wasm` | 87.9 MB | 20.0 MB |
-| std sysroot bundle | 71.3 MB | 23.5 MB |
-| egui sysroot bundle | 105.9 MB | 35.5 MB |
-| host wasm | 8.0 MB | 3.3 MB |
-| total | 273 MB | 82.3 MB |
-
-The egui bundle is the largest single item, and 61% of an egui rlib is metadata rather than
-object code, which no optimization flag reaches. `codegen-units = 1` takes the rlib set from
-101 MB to 96 MB but costs 12% of guest frame time, so the rlibs stay on the `release` profile.
-
-The host is built with the `small` profile, which is `opt-level = "z"`, `lto`, one codegen unit,
-`panic = "abort"` and `strip`.
-
-| host build | raw | gzip | brotli |
-| --- | --- | --- | --- |
-| `release` | 9.27 MB | 3.90 MB | 2.97 MB |
-| `small` | 7.99 MB | 3.26 MB | 2.60 MB |
-
-Compiling in the browser, per program, one `rustc` invocation against the prebuilt rlibs:
-
-| what | value |
-| --- | --- |
-| compile + link, natively | 215 ms (`hello`), 249 ms (`widgets`) |
-| guest module size | 7.6 MB |
-| 60 frames under node, 640x480 at 2x | 21 ms (`hello`), 32 ms (`widgets`) |
-| first frame font atlas | 8192x32 RGBA, 1 MB |
-
-## Reuse
-
-Browser compilation follows [weblings](https://github.com/AngelOnFira/weblings) (MIT): bjorn3's
-rustc-in-wasm fork, `clif2wasm`, and the `riwl` linker, with `browser_wasi_shim` in the worker.
+(MIT): bjorn3's rustc-in-wasm fork, `clif2wasm`, and the `riwl` linker, with `browser_wasi_shim` in the worker.
