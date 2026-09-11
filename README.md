@@ -15,18 +15,6 @@ That wasm blob is compiled by rustc & cranelift in the browser.
 | `host` | the eframe web app: editor, guest view, worker glue. |
 | `guest-examples` | example programs, built for `wasm32-wasip1`. |
 
-## Guest ABI
-
-A guest is a `wasm32-wasip1` binary. `main` calls `egui_playground::run(app)`, which keeps the app
-and an `egui::Context` in a thread local and returns. The host then drives frames:
-
-- `pg_alloc(len) -> *mut u8` reserves a buffer for the frame input.
-- `pg_frame(ptr, len) -> *const u8` runs one frame and returns a `u32` byte count followed by that
-  many bytes of encoded output. It stays valid until the next call.
-- `pg_free(ptr, len)` releases a buffer that was never passed to `pg_frame`.
-
-Thread-local state survives between calls, so the app keeps its state across frames.
-
 ## Running the examples
 
 ```sh
@@ -49,3 +37,7 @@ bridge breakage without a browser.
 Browser compilation was more or less copied from [weblings](https://github.com/AngelOnFira/weblings)
 
 (MIT): bjorn3's rustc-in-wasm fork, `clif2wasm`, and the `riwl` linker, with `browser_wasi_shim` in the worker.
+
+## License
+
+Dual licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), same as egui.
