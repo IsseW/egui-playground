@@ -3,7 +3,6 @@
 use egui::text::LayoutJob;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // The compiler side that builds these lands in phase 2.
 pub enum Severity {
     Error,
     Warning,

@@ -1,0 +1,13 @@
+# Pinned browser compiler artifacts, published as GitHub Release assets by the companion
+# `wasm-rustc` builder. `tag` is the immutable Release tag, each asset line pins its sha256.
+#
+# The tag and the hashes below are placeholders. Paste the real ones from the `SHA256SUMS`
+# artifact of the `wasm-rustc` run that built the Release.
+#
+# Local escape hatch, no download: RIW_ARTIFACTS_LOCAL=<other checkout's public/> cargo xtask prep
+repo=IsseW/wasm-rustc
+tag=artifacts-PLACEHOLDER
+rustc-wasm.tar.zst sha256=0000000000000000000000000000000000000000000000000000000000000000
+std-sysroot.tar.zst sha256=0000000000000000000000000000000000000000000000000000000000000000
+wasip1-sysroot.tar.zst sha256=0000000000000000000000000000000000000000000000000000000000000000
+egui-sysroot.tar.zst sha256=0000000000000000000000000000000000000000000000000000000000000000

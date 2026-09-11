@@ -4,3 +4,10 @@ dist = "dist"
 
 [serve]
 port = 8080
+
+# Fetches and verifies the pinned compiler artifacts, then stages them into `public/rustc`.
+# It returns immediately once they are staged.
+[[hooks]]
+stage = "pre_build"
+command = "cargo"
+command_arguments = ["run", "-q", "-p", "xtask", "--", "prep"]

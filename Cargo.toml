@@ -5,6 +5,7 @@ members = [
   "crates/guest-examples",
   "crates/host",
   "toolchain",
+  "xtask",
 ]
 resolver = "2"
 
@@ -21,3 +22,12 @@ egui_playground = { path = "crates/egui_playground" }
 
 [profile.release]
 opt-level = 2
+
+# Profile for the `host` web build. `toolchain/build-sysroot.sh` builds the shipped rlibs with `release`.
+[profile.small]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

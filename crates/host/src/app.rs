@@ -7,10 +7,14 @@ use pg_abi::{FrameOutput, Input};
 use wasm_bindgen::{JsCast as _, JsValue};
 
 use crate::{
+    compiler::{Compiler, Outcome},
     editor::{self, EditorState},
     guest::GuestView,
     runtime::{LogLine, Runtime},
 };
+
+/// How long the editor has to stay unchanged before a type check is sent.
+const CHECK_DEBOUNCE: f64 = 0.3;
 
 /// The programs under `public/examples`, by file stem.
 const EXAMPLES: &[&str] = &["hello", "painter", "text_edit", "widgets"];
@@ -73,6 +77,14 @@ pub struct PlaygroundApp {
     events: Vec<egui::Event>,
 
     fetched: Rc<RefCell<Vec<Fetched>>>,
+
+    compiler: Compiler,
+
+    /// What the compiler is doing, shown above the console.
+    status: String,
+
+    /// When the editor text last changed, in seconds of egui time.
+    edited_at: Option<f64>,
 }
 
 impl PlaygroundApp {
@@ -91,8 +103,12 @@ impl PlaygroundApp {
             pending: None,
             events: Vec::new(),
             fetched: Rc::new(RefCell::new(Vec::new())),
+            compiler: Compiler::new(),
+            status: String::new(),
+            edited_at: None,
         };
         app.open_example(&cc.egui_ctx, EXAMPLES[0]);
+        app.compiler.preload(&cc.egui_ctx);
         app
     }
 
@@ -150,9 +166,87 @@ impl PlaygroundApp {
                 Fetched::Source { name, code } => {
                     if name == self.example {
                         self.editor.code = code;
+                        self.editor.diagnostics.clear();
+                        self.edited_at = Some(ctx.input(|i| i.time));
                     }
                 }
                 Fetched::Failed(message) => self.log(Source::Stderr, message),
+            }
+        }
+    }
+
+    /// Compiles what the editor holds and runs it once it is built.
+    fn run(&mut self, ctx: &egui::Context) {
+        self.edited_at = None;
+        self.status = "compiling".to_owned();
+        self.log(Source::Host, "compiling the editor's program");
+        self.compiler.build(ctx, self.editor.code.clone());
+    }
+
+    /// Sends a type check once the editor has been still long enough and nothing else is running.
+    fn check_when_settled(&mut self, ctx: &egui::Context) {
+        let Some(edited_at) = self.edited_at else {
+            return;
+        };
+        let now = ctx.input(|i| i.time);
+        let waited = now - edited_at;
+        if waited < CHECK_DEBOUNCE {
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64(CHECK_DEBOUNCE - waited));
+            return;
+        }
+        if self.compiler.is_busy() {
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64(CHECK_DEBOUNCE));
+            return;
+        }
+
+        self.edited_at = None;
+        self.compiler.check(ctx, self.editor.code.clone());
+    }
+
+    fn take_compiled(&mut self, ctx: &egui::Context) {
+        for outcome in self.compiler.take() {
+            match outcome {
+                Outcome::Status(text) => self.status = text,
+
+                Outcome::Built { result, wasm } => {
+                    self.editor.diagnostics = result.editor_diagnostics(&self.editor.file);
+                    for diagnostic in &result.diagnostics {
+                        self.log(Source::Stderr, diagnostic.rendered.clone());
+                    }
+                    if !result.stderr.is_empty() {
+                        self.log(Source::Stderr, result.stderr.clone());
+                    }
+
+                    match wasm {
+                        Some(wasm) if result.ok => {
+                            self.status =
+                                format!("built {} KB, {}", wasm.len() / 1024, result.timings());
+                            self.log(Source::Host, self.status.clone());
+                            self.wasm = Some(Rc::new(wasm));
+                            self.restart(ctx);
+                        }
+                        _ => {
+                            self.status =
+                                format!("{} errors, {}", result.error_count(), result.timings());
+                            self.log(Source::Host, "compilation failed");
+                        }
+                    }
+                }
+
+                Outcome::Checked(result) => {
+                    self.editor.diagnostics = result.editor_diagnostics(&self.editor.file);
+                    self.status = format!(
+                        "{} errors, {} warnings, check {:.0} ms",
+                        result.error_count(),
+                        result.warning_count(),
+                        result.compile_ms
+                    );
+                }
+
+                Outcome::Failed(message) => {
+                    self.status = message.clone();
+                    self.log(Source::Stderr, message);
+                }
             }
         }
     }
@@ -226,12 +320,8 @@ impl PlaygroundApp {
             let run = ui.button("Run").on_hover_text("Ctrl+Enter");
             let shortcut = egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Enter);
             if run.clicked() || ui.input_mut(|i| i.consume_shortcut(&shortcut)) {
-                self.log(
-                    Source::Host,
-                    "in-browser compilation is not wired up yet, reloading the prebuilt example",
-                );
-                let example = self.example.clone();
-                self.open_example(ui.ctx(), &example);
+                let ctx = ui.ctx().clone();
+                self.run(&ctx);
             }
 
             let mut chosen = None;
@@ -268,6 +358,15 @@ impl PlaygroundApp {
     }
 
     fn console(&self, ui: &mut egui::Ui) {
+        if !self.status.is_empty() {
+            ui.label(
+                egui::RichText::new(&self.status)
+                    .monospace()
+                    .color(ui.visuals().strong_text_color()),
+            );
+            ui.separator();
+        }
+
         ui.take_available_space();
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
@@ -364,7 +463,9 @@ impl eframe::App for PlaygroundApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.take_fetched(&ctx);
+        self.take_compiled(&ctx);
         self.poll_runtime();
+        self.check_when_settled(&ctx);
 
         egui::Panel::top("toolbar").show(ui, |ui| self.toolbar(ui));
 
@@ -377,7 +478,9 @@ impl eframe::App for PlaygroundApp {
             .resizable(true)
             .default_size(480.0)
             .show(ui, |ui| {
-                editor::ui(ui, &mut self.editor);
+                if editor::ui(ui, &mut self.editor).changed() {
+                    self.edited_at = Some(ui.input(|i| i.time));
+                }
             });
 
         egui::CentralPanel::no_frame().show(ui, |ui| match frame.wgpu_render_state() {

@@ -1,3 +1,4 @@
 /target
 dist/
 crates/host/public/examples/
+crates/host/public/rustc/

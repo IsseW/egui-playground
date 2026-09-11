@@ -2,6 +2,7 @@
 //! frames into a panel.
 
 mod app;
+mod compiler;
 mod editor;
 mod guest;
 mod runtime;

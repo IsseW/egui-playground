@@ -1,0 +1,63 @@
+# Build the playground and deploy it to GitHub Pages.
+#
+# CI does not build the browser compiler. `rustc.wasm` and the two sysroot bundles are published
+# as Release assets by the companion `wasm-rustc` repo and pinned in `toolchain/artifacts.lock`.
+# Trunk's pre_build hook runs `xtask prep`, which fetches and verifies them.
+name: Deploy playground to Pages
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown, wasm32-wasip1
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The compiler artifacts are ~265 MB, so key the cache on the lock file and steady-state
+      # deploys pull nothing from the Release.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/riw-artifacts
+          key: riw-artifacts-${{ hashFiles('toolchain/artifacts.lock') }}
+
+      - uses: jetli/trunk-action@v0.5.0
+
+      # The examples dropdown reads these, and they are build output rather than committed files.
+      - run: scripts/build-examples.sh
+
+      # The pre_build hook stages the compiler artifacts. `--public-url` suits a project site
+      # served from `/<repo>/`.
+      - run: trunk build --release --public-url "/${GITHUB_REPOSITORY#*/}/"
+        working-directory: crates/host
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: crates/host/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -5,8 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         <title>egui playground</title>
 
-        <link data-trunk rel="rust" data-wasm-opt="2" />
+        <link
+            data-trunk
+            rel="rust"
+            data-cargo-profile-release="small"
+            data-wasm-opt="2"
+            data-wasm-opt-params="--enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue"
+        />
         <link data-trunk rel="copy-dir" href="public" />
+        <link data-trunk rel="icon" href="data/egui_logo.png" />
 
         <style>
             html,
@@ -31,5 +38,8 @@
 
     <body>
         <canvas id="playground_canvas"></canvas>
+
+        <!-- Defines window.compileRust and window.checkRust, which the host calls. -->
+        <script type="module" src="public/runner.js"></script>
     </body>
 </html>
