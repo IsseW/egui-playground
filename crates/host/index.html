@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+        <title>egui playground</title>
+
+        <link data-trunk rel="rust" data-wasm-opt="2" />
+        <link data-trunk rel="copy-dir" href="public" />
+
+        <style>
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                width: 100%;
+                overflow: hidden;
+                background: #0b0b0c;
+            }
+
+            canvas {
+                display: block;
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+
+    <body>
+        <canvas id="playground_canvas"></canvas>
+    </body>
+</html>

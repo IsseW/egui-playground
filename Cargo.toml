@@ -1,0 +1,23 @@
+[workspace]
+members = [
+  "crates/pg-abi",
+  "crates/egui_playground",
+  "crates/guest-examples",
+  "crates/host",
+  "toolchain",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+egui = { version = "0.36", default-features = false }
+pg-abi = { path = "crates/pg-abi" }
+egui_playground = { path = "crates/egui_playground" }
+
+[profile.release]
+opt-level = 2

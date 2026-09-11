@@ -1,0 +1,41 @@
+[package]
+name = "host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+egui.workspace = true
+pg-abi.workspace = true
+
+eframe = { version = "0.36", default-features = false, features = [
+  "default_fonts",
+  "wgpu",
+] }
+egui_extras = { version = "0.36", features = ["image", "syntect"] }
+
+# Turns on the png decoder in the `image` crate that `egui_extras` loads the logo with.
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+console_error_panic_hook = "0.1"
+js-sys = "0.3"
+log = "0.4"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "Document",
+  "Element",
+  "ErrorEvent",
+  "HtmlCanvasElement",
+  "MessageEvent",
+  "Performance",
+  "Response",
+  "Window",
+  "Worker",
+  "WorkerOptions",
+  "WorkerType",
+]
